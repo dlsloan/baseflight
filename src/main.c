@@ -15,6 +15,9 @@ extern rcReadRawDataPtr rcReadRawFunc;
 // receiver read function
 extern uint16_t pwmReadRawRC(uint8_t chan);
 
+// AJM Xbee
+extern uint16_t xbeeReadRawRC(uint8_t chan);
+
 // from system_stm32f10x.c
 void SetSysClock(bool overclock);
 
@@ -188,6 +191,10 @@ int main(void)
     rcReadRawFunc = pwmReadRawRC;
     core.numRCChannels = MAX_INPUTS;
 
+// **************** Added code here
+// AJM XBee
+	rcReadRawFunc = xbeeReadRawRC;
+
     if (feature(FEATURE_SERIALRX)) {
         switch (mcfg.serialrx_type) {
             case SERIALRX_SPEKTRUM1024:
@@ -248,6 +255,10 @@ int main(void)
     calibratingG = CALIBRATING_GYRO_CYCLES;
     calibratingB = CALIBRATING_BARO_CYCLES;             // 10 seconds init_delay + 200 * 25 ms = 15 seconds before ground pressure settles
     f.SMALL_ANGLE = 1;
+
+    //AJM XBEE stuff
+    for(int c=0; c<8; c++)
+	channel_xbee_storage[c] = 1500;
 
     // loopy
     while (1) {

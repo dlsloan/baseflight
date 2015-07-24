@@ -82,6 +82,9 @@
 #define MSP_REBOOT               68     //in message          reboot settings
 #define MSP_BUILDINFO            69     //out message         build date as well as some space for future expansion
 
+// AJM Xbee stuff
+#define MSP_SET_RAW_RC_NO_ERROR_CHECK 124
+
 #define INBUF_SIZE 128
 
 typedef struct box_t {
@@ -126,6 +129,8 @@ static uint8_t numberBoxItems = 0;
 extern int16_t motor_disarmed[MAX_MOTORS];
 // cause reboot after MSP processing complete
 static bool pendReboot = false;
+
+void setRcRawDataXbee(uint16_t channel, uint16_t value);
 
 static const char pidnames[] =
     "ROLL;"
@@ -279,7 +284,7 @@ void serialInit(uint32_t baudrate)
     numTelemetryPorts++;
 
     // additional telemetry port available only if spektrum sat isn't already assigned there
-    if (hw_revision == NAZE32_SP  && !mcfg.spektrum_sat_on_flexport) {
+    if (hw_revision >= NAZE32_SP  && !mcfg.spektrum_sat_on_flexport) {
         core.flexport = uartOpen(USART3, NULL, baudrate, MODE_RXTX);
         ports[1].port = core.flexport;
         numTelemetryPorts++;
@@ -327,6 +332,12 @@ void serialInit(uint32_t baudrate)
     numberBoxItems = idx;
 }
 
+void setRcRawDataXbee(uint16_t channel, uint16_t value)
+{
+	if(1000 <= value && value <= 2000 && channel <= 7)
+		channel_xbee_storage[channel] = value;
+}
+
 static void evaluateCommand(void)
 {
     uint32_t i, j, tmp, junk;
@@ -335,6 +346,7 @@ static void evaluateCommand(void)
     int32_t lat = 0, lon = 0, alt = 0;
 #endif
     const char *build = __DATE__;
+    uint16_t channel,value;
 
     switch (currentPortState->cmdMSP) {
         case MSP_SET_RAW_RC:
@@ -529,8 +541,11 @@ static void evaluateCommand(void)
             loadCustomServoMixer();
             break;
         case MSP_FW_CONFIG:
-            headSerialReply(38);
+            headSerialReply(47);
             serialize8(mcfg.fw_althold_dir);
+            serialize32(cfg.fw_roll_throw);
+            serialize32(cfg.fw_pitch_throw);
+            serialize8(cfg.fw_vector_trust);
             serialize16(cfg.fw_gps_maxcorr);
             serialize16(cfg.fw_gps_rudder);
             serialize16(cfg.fw_gps_maxclimb);
@@ -550,6 +565,9 @@ static void evaluateCommand(void)
         case MSP_SET_FW_CONFIG:
             headSerialReply(0);
             mcfg.fw_althold_dir = read8();
+            cfg.fw_roll_throw = read32();
+            cfg.fw_pitch_throw = read32();
+            cfg.fw_vector_trust = read8();
             cfg.fw_gps_maxcorr = read16();
             cfg.fw_gps_rudder = read16();
             cfg.fw_gps_maxclimb = read16();
@@ -807,13 +825,10 @@ static void evaluateCommand(void)
             cfg.rollPitchRate[0] = read8();
             cfg.rollPitchRate[1] = read8();
             mcfg.power_adc_channel = read8();
-            cfg.small_angle = read8();
-            mcfg.looptime = read16();
-            cfg.locked_in = read8();
             /// ???
             break;
         case MSP_CONFIG:
-            headSerialReply(1 + 4 + 1 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 1 + 1 + 2 + 1);
+            headSerialReply(1 + 4 + 1 + 2 + 2 + 2 + 2 + 2 + 2 + 2 + 1);
             serialize8(mcfg.mixerConfiguration);
             serialize32(featureMask());
             serialize8(mcfg.serialrx_type);
@@ -826,9 +841,6 @@ static void evaluateCommand(void)
             serialize8(cfg.rollPitchRate[0]);
             serialize8(cfg.rollPitchRate[1]);
             serialize8(mcfg.power_adc_channel);
-            serialize8(cfg.small_angle);
-            serialize16(mcfg.looptime);
-            serialize8(cfg.locked_in);
             /// ???
             break;
 
@@ -855,7 +867,13 @@ static void evaluateCommand(void)
             serialize32(0); // future exp
             serialize32(0); // future exp
             break;
-
+        case MSP_SET_RAW_RC_NO_ERROR_CHECK:
+        	channel = read16();
+        	value = read16();
+        	setRcRawDataXbee(channel,value);
+            headSerialReply(0);
+            break;
+        	
         default:                   // we do not know how to handle the (valid) message, indicate error MSP $M!
             headSerialError(0);
             break;

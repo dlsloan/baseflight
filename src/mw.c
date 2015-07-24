@@ -255,14 +255,21 @@ uint16_t pwmReadRawRC(uint8_t chan)
     return pwmRead(mcfg.rcmap[chan]);
 }
 
+uint16_t xbeeReadRawRC(uint8_t chan)
+{
+    return channel_xbee_storage[chan];
+}
+
+
+
 void computeRC(void)
 {
     uint16_t capture;
     int i, chan;
 
-    if (feature(FEATURE_SERIALRX)) {
+    if (feature(FEATURE_SERIALRX) || true) {
         for (chan = 0; chan < 8; chan++)
-            rcData[chan] = rcReadRawFunc(chan);
+            rcData[chan] = xbeeReadRawRC(chan);
     } else {
         static int16_t rcDataAverage[8][4];
         static int rcAverageIndex = 0;

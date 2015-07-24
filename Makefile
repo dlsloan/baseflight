@@ -87,7 +87,9 @@ NAZE_SRC	 = drv_adc.c \
 		   drv_hmc5883l.c \
 		   drv_ledring.c \
 		   drv_mma845x.c \
-		   drv_mpu.c \
+		   drv_mpu3050.c \
+		   drv_mpu6050.c \
+		   drv_mpu6500.c \
 		   drv_l3g4200d.c \
 		   drv_pwm.c \
 		   drv_spi.c \
@@ -97,7 +99,7 @@ NAZE_SRC	 = drv_adc.c \
 
 # Source files for the CJMCU target
 CJMCU_SRC	 = drv_adc.c \
-		   drv_mpu.c \
+		   drv_mpu6050.c \
 		   drv_hmc5883l.c \
 		   drv_pwm.c \
 		   drv_timer.c \

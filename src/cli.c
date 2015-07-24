@@ -26,6 +26,7 @@ static void cliSave(char *cmdline);
 static void cliSet(char *cmdline);
 static void cliServo(char *cmdline);
 static void cliServoMix(char *cmdline);
+static void cliSrc(char *cmdline);
 static void cliStatus(char *cmdline);
 static void cliVersion(char *cmdline);
 
@@ -64,7 +65,7 @@ static const char *const featureNames[] = {
     "PPM", "VBAT", "INFLIGHT_ACC_CAL", "SERIALRX", "MOTOR_STOP",
     "SERVO_TILT", "SOFTSERIAL", "LED_RING", "GPS",
     "FAILSAFE", "SONAR", "TELEMETRY", "POWERMETER", "VARIO", "3D",
-    "FW_FAILSAFE_RTH", "SYNCPWM", "FASTPWM", "SERVO_MIXER",
+    "FW_FAILSAFE_RTH", "SYNCPWM", "FASTPWM",
     NULL
 };
 
@@ -80,7 +81,7 @@ static const char *const accNames[] = {
 
 // sync this with HardwareRevision in board.h
 static const char *const hwNames[] = {
-    "", "Naze 32", "Naze32 rev.5", "Naze32 SP", "Naze32 rev.6"
+    "", "Naze 32", "Naze32 rev.5", "Naze32 SP"
 };
 
 typedef struct {
@@ -109,6 +110,7 @@ const clicmd_t cmdTable[] = {
     { "servo", "edit servo configuration", cliServo },
     { "set", "name=value or blank or * for list", cliSet },
     { "smix", "design custom servo mixer", cliServoMix },
+    { "src", "Set the RC value (Custom made) eg. 'src 0 1000' to set channel 0 to 1000", cliSrc },
     { "status", "show system status", cliStatus },
     { "version", "", cliVersion },
 };
@@ -214,6 +216,9 @@ const clivalue_t valueTable[] = {
     { "rssi_adc_offset", VAR_INT16, &mcfg.rssi_adc_offset, 0, 4095 },
     { "yaw_direction", VAR_INT8, &cfg.yaw_direction, -1, 1 },
     { "tri_unarmed_servo", VAR_INT8, &cfg.tri_unarmed_servo, 0, 1 },
+    { "fw_roll_throw", VAR_FLOAT, &cfg.fw_roll_throw, 0, 1 },
+    { "fw_pitch_throw", VAR_FLOAT, &cfg.fw_pitch_throw, 0, 1 },
+    { "fw_vector_trust", VAR_UINT8, &cfg.fw_vector_trust, 0, 1},
     { "gimbal_flags", VAR_UINT8, &cfg.gimbal_flags, 0, 255},
     { "acc_lpf_factor", VAR_UINT8, &cfg.acc_lpf_factor, 0, 250 },
     { "accxy_deadband", VAR_UINT8, &cfg.accxy_deadband, 0, 100 },
@@ -1205,6 +1210,28 @@ static void cliSetVar(const clivalue_t *var, const int_float_value_t value)
     }
 }
 
+static void cliSrc(char *cmdline)
+{
+    uint32_t len = strlen(cmdline);
+    uint32_t channel,value;
+    
+    if(len == 0 || sscanf(cmdline,"%u %u",&channel,&value) != 2) {
+    	cliPrint("Number in incorrect format. Please send it in the format 'src <channel> <value>'\r\n");
+    } else {
+    	// Check the channel to make sure it's allowable (between 0 and 7 inclusive)
+    	if(channel > 7) {
+    		cliPrint("Incorrect channel value. Must be between 0 and 7\r\n");
+    	}
+    	
+    	// Simply set the values
+    	channel_xbee_storage[channel] = value;
+    }
+    
+    cliMode = 0;
+    
+    
+}
+
 static void cliSet(char *cmdline)
 {
     uint32_t i;
@@ -1279,8 +1306,11 @@ static void cliStatus(char *cmdline)
         if (mask & (1 << i))
             printf("%s ", sensorNames[i]);
     }
-    if (sensors(SENSOR_ACC))
+    if (sensors(SENSOR_ACC)) {
         printf("ACCHW: %s", accNames[accHardware]);
+        if (accHardware == ACC_MPU6050)
+            printf(".%c", core.mpu6050_scale ? 'o' : 'n');
+    }
     cliPrint("\r\n");
 
     printf("Cycle Time: %d, I2C Errors: %d, config size: %d\r\n", cycleTime, i2cGetErrorCounter(), sizeof(master_t));
